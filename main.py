@@ -19,8 +19,16 @@ def start_game(message):
             digit = random.choice(digits[1:])
         my_number += digit
         digits.remove(digit)
-    bot.reply_to(message, 'Игра в быки и коровы'
+    bot.reply_to(message, 'Игра в быки и коровы. '
         f'Я загадал 4-значное число. Попробуй отгадать, {message.from_user.first_name}!')
+
+@bot.message_handler(commands=['help'])
+def show_help(message):
+    bot.reply_to(message, """
+Игра Быки и коровы
+
+Игра, в которой игрок должен определить число задуманое ботом как можно быстрее, при каждой попытке бот сообщает сколько чисел ты угадал(количество коров) и какие из них стоят правильно(количество быков).
+    """)
 
 @bot.message_handler(content_types=['text'])
 def bot_answer(message):
