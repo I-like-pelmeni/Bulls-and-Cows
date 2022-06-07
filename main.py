@@ -10,6 +10,7 @@ my_number = ''
 @bot.message_handler(commands=['start', 'game'])
 def start_game(message):
     digits = DIGITS.copy()
+    global my_number
     my_number = ''
     for pos in range(4):
         if pos:
@@ -19,13 +20,20 @@ def start_game(message):
         my_number += digit
         digits.remove(digit)
     bot.reply_to(message, 
-        f'Я загадал 4-значное число. Попробуй отгадать, {message.from_user.first_name}!')
+        f'Я загадал 4-значное число {my_number}. Попробуй отгадать, {message.from_user.first_name}!')
 
 @bot.message_handler(content_types=['text'])
 def bot_answer(message):
     text = message.text
     if len(text) == 4 and text.isnumeric():
-        response = text
+        cows, bulls = 0, 0
+        for i in range(4):
+            if text[i] in my_number:
+                if text[i] == my_number[i]:
+                    bulls += 1
+                else:
+                    cows += 1
+        response = f'cows: {cows} / bulls: {bulls}'
     else:
         response = 'Пришли мне 4-значное число!'
     bot.send_message(message.from_user.id, response)
