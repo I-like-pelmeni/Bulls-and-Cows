@@ -1,6 +1,7 @@
 import telebot
 import random
 import shelve
+from itertools import product
 
 from config import bot_token, db_name
 
@@ -38,6 +39,7 @@ def start_game(message, level):
     print(f'{my_number} for {message.from_user.username}')
     with shelve.open(db_name) as storage:
         storage[str(message.from_user.id)] = my_number
+        storage[str(message.from_user.id) + '__level'] = level
     bot.reply_to(message, 'Игра "Быки и коровы"\n'
         f'Я загадал {level}-значное число. Попробуй отгадать, {message.from_user.first_name}!')
 
@@ -56,6 +58,7 @@ def bot_answer(message):
             my_number = storage[str(message.from_user.id)]
         else:
             my_number = ''
+    # Если режим загадал человек, то бот отправляет свой вариант
     if not my_number:
         bot_answer_not_in_game(message)
     else:
@@ -77,13 +80,7 @@ def bot_answer_to_man_guess(message, my_number):
     level = len(my_number)
     text = message.text 
     if len(text) == level and text.isnumeric() and len(text) == len(set(text)):
-        cows, bulls = 0, 0
-        for i in range(level):
-            if text[i] in my_number:
-                if text[i] == my_number[i]:
-                    bulls += 1
-                else:
-                    cows += 1
+        bulls, cows = bulls_n_cows(my_number, text)
         if bulls == level:
             print(f'{my_number} was discovered by {message.from_user.username} !')
             with shelve.open(db_name) as storage:
@@ -100,6 +97,28 @@ def bot_answer_to_man_guess(message, my_number):
         response = f'Пришли мне {level}-значное число с разными цифрами!'
     bot.send_message(message.from_user.id, response)
 
+def bot_answer_with_guess(message):
+    with shelve.open(db_name) as storage:
+        history_id = str(message.from_user.id) + '__history'
+        history = storage.get(history_id, [])
+        level = storage.get(str(message.from_user.id) + '__level', 0)
+        assert level == 0, 'Error: level 0 in bot_answer_with_guess'
+    all_variants = [''.join(x) for x in product(DIGITS, level)
+                    if len(x) == len(set(x)) and x[0] == '0']
+    while True:
+        guess = random.choice(all_variants)
+        all_variants.remove(guess)
+        if is_compatible(guess, history):
+            break
+    keys = []
+    for bulls in range(level + 1):
+        for cows in range(level + 1- bulls):
+            keys.append(f'{bulls}-{cows}')
+    response = f'Мой вариант {guess}\n' + \
+                'Сколько быков и коров я угадал?'
+    bot.send_message(message.from_user.id, response,
+        reply_markup=get_buttons(keys))
+
 def get_buttons(*args):
     buttons = telebot.types.ReplyKeyboardMarkup(
         one_time_keyboard=True,
@@ -107,6 +126,15 @@ def get_buttons(*args):
     )
     buttons.add(*args)
     return buttons
+
+def bulls_n_cows(a, b):
+    bulls = sum(1 for x, y in zip(a, b) if x == y)
+    cows = len(set(a) & set(b)) - bulls
+    return bulls, cows
+
+def is_compatible(guess, history):
+    return all(bulls_n_cows(guess, previous_guess) == (bulls, cows) 
+               for previous_guess, bulls, cows in history)
 
 if __name__ == '__main__':
     bot.polling(non_stop=True)
