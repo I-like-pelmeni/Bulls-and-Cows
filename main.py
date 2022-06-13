@@ -1,6 +1,5 @@
 import telebot
 import random
-import shelve
 from itertools import product
 
 from config import bot_token, db_name
